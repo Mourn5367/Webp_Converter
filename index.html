@@ -94,101 +94,128 @@
             </div>
           </div>
 
-          <div class="control-block">
-            <h3>트림</h3>
-            <div class="row two-col">
-              <label>
-                시작(초)
-                <input id="trimStart" type="number" min="0" step="0.1" value="0" />
-              </label>
-              <label>
-                종료(초)
-                <input id="trimEnd" type="number" min="0" step="0.1" value="0" />
-              </label>
+          <div class="editor-tabs" role="tablist" aria-label="편집 설정 탭">
+            <button
+              type="button"
+              class="editor-tab-btn is-active"
+              data-tab-target="tab-edit"
+              role="tab"
+              aria-controls="tab-edit"
+              aria-selected="true"
+            >
+              편집
+            </button>
+            <button
+              type="button"
+              class="editor-tab-btn"
+              data-tab-target="tab-output"
+              role="tab"
+              aria-controls="tab-output"
+              aria-selected="false"
+            >
+              출력 설정
+            </button>
+          </div>
+
+          <div class="editor-tab-panel is-active" id="tab-edit" data-tab-panel role="tabpanel">
+            <div class="control-block">
+              <h3>트림</h3>
+              <div class="row two-col">
+                <label>
+                  시작(초)
+                  <input id="trimStart" type="number" min="0" step="0.1" value="0" />
+                </label>
+                <label>
+                  종료(초)
+                  <input id="trimEnd" type="number" min="0" step="0.1" value="0" />
+                </label>
+              </div>
+            </div>
+
+            <div class="control-block">
+              <div class="block-title">
+                <h3>크롭</h3>
+                <button type="button" class="ghost-btn" id="cropResetBtn">원본 채우기</button>
+              </div>
+              <div class="row four-col">
+                <label>
+                  X
+                  <input id="cropX" type="number" min="0" step="1" value="0" />
+                </label>
+                <label>
+                  Y
+                  <input id="cropY" type="number" min="0" step="1" value="0" />
+                </label>
+                <label>
+                  W
+                  <input id="cropW" type="number" min="1" step="1" value="0" />
+                </label>
+                <label>
+                  H
+                  <input id="cropH" type="number" min="1" step="1" value="0" />
+                </label>
+              </div>
+            </div>
+
+            <div class="control-block">
+              <div class="block-title">
+                <h3>리사이즈</h3>
+                <button type="button" class="ghost-btn" id="resizeResetBtn">크롭 크기 맞춤</button>
+              </div>
+              <div class="row two-col">
+                <label>
+                  너비(px)
+                  <input id="resizeW" type="number" min="1" step="1" value="0" />
+                </label>
+                <label>
+                  높이(px)
+                  <input id="resizeH" type="number" min="1" step="1" value="0" />
+                </label>
+              </div>
             </div>
           </div>
 
-          <div class="control-block">
-            <div class="block-title">
-              <h3>크롭</h3>
-              <button type="button" class="ghost-btn" id="cropResetBtn">원본 채우기</button>
+          <div class="editor-tab-panel" id="tab-output" data-tab-panel role="tabpanel" hidden>
+            <div class="control-block">
+              <h3>FPS</h3>
+              <div class="slider-row">
+                <input id="fpsRange" type="range" min="1" max="60" step="1" value="12" />
+                <input id="fpsInput" type="number" min="1" max="60" step="1" value="12" />
+              </div>
             </div>
-            <div class="row four-col">
-              <label>
-                X
-                <input id="cropX" type="number" min="0" step="1" value="0" />
-              </label>
-              <label>
-                Y
-                <input id="cropY" type="number" min="0" step="1" value="0" />
-              </label>
-              <label>
-                W
-                <input id="cropW" type="number" min="1" step="1" value="0" />
-              </label>
-              <label>
-                H
-                <input id="cropH" type="number" min="1" step="1" value="0" />
-              </label>
+
+            <div class="control-block">
+              <h3>재생 속도</h3>
+              <div class="slider-row">
+                <input id="speedRange" type="range" min="0.25" max="4" step="0.05" value="1" />
+                <input id="speedInput" type="number" min="0.25" max="4" step="0.05" value="1.00" />
+              </div>
+            </div>
+
+            <div class="control-block">
+              <h3>품질</h3>
+              <div class="slider-row">
+                <input id="qualityRange" type="range" min="1" max="100" step="1" value="75" />
+                <input id="qualityInput" type="number" min="1" max="100" step="1" value="75" />
+              </div>
+            </div>
+
+            <div class="control-block">
+              <h3>목표 용량</h3>
+              <div class="row two-col">
+                <label>
+                  목표(MB)
+                  <input id="targetSizeMB" type="number" min="0.1" step="0.1" value="1.0" />
+                </label>
+                <label>
+                  추천 실행
+                  <button type="button" class="ghost-btn" id="recommendBtn" disabled>FPS/품질 추천</button>
+                </label>
+              </div>
             </div>
           </div>
 
-          <div class="control-block">
-            <div class="block-title">
-              <h3>리사이즈</h3>
-              <button type="button" class="ghost-btn" id="resizeResetBtn">크롭 크기 맞춤</button>
-            </div>
-            <div class="row two-col">
-              <label>
-                너비(px)
-                <input id="resizeW" type="number" min="1" step="1" value="0" />
-              </label>
-              <label>
-                높이(px)
-                <input id="resizeH" type="number" min="1" step="1" value="0" />
-              </label>
-            </div>
-          </div>
-
-          <div class="control-block">
-            <h3>FPS</h3>
-            <div class="slider-row">
-              <input id="fpsRange" type="range" min="1" max="60" step="1" value="12" />
-              <input id="fpsInput" type="number" min="1" max="60" step="1" value="12" />
-            </div>
-          </div>
-
-          <div class="control-block">
-            <h3>재생 속도</h3>
-            <div class="slider-row">
-              <input id="speedRange" type="range" min="0.25" max="4" step="0.05" value="1" />
-              <input id="speedInput" type="number" min="0.25" max="4" step="0.05" value="1.00" />
-            </div>
-          </div>
-
-          <div class="control-block">
-            <h3>품질</h3>
-            <div class="slider-row">
-              <input id="qualityRange" type="range" min="1" max="100" step="1" value="75" />
-              <input id="qualityInput" type="number" min="1" max="100" step="1" value="75" />
-            </div>
-          </div>
-
-          <div class="control-block">
-            <h3>목표 용량</h3>
-            <div class="row two-col">
-              <label>
-                목표(MB)
-                <input id="targetSizeMB" type="number" min="0.1" step="0.1" value="1.0" />
-              </label>
-              <label>
-                추천 실행
-                <button type="button" class="ghost-btn" id="recommendBtn" disabled>FPS/품질 추천</button>
-              </label>
-            </div>
-          </div>
-
-          <div class="actions">
+          <div class="actions input-actions-sticky">
             <button type="button" class="ghost-btn" id="estimateBtn" disabled>용량 예측</button>
             <button type="button" class="primary-btn" id="convertBtn" disabled>WebP 변환</button>
             <button type="button" class="ghost-btn" id="cancelBtn" disabled>변환 취소</button>
@@ -237,6 +264,6 @@
       </main>
     </div>
 
-    <script type="module" src="./main.js?v=20260213-target1"></script>
+    <script type="module" src="./main.js?v=20260213-layout1"></script>
   </body>
 </html>

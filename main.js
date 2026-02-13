@@ -36,6 +36,8 @@ const els = {
   qualityInput: document.querySelector("#qualityInput"),
   targetSizeMB: document.querySelector("#targetSizeMB"),
   recommendBtn: document.querySelector("#recommendBtn"),
+  editorTabButtons: document.querySelectorAll(".editor-tab-btn"),
+  editorTabPanels: document.querySelectorAll(".editor-tab-panel"),
   cropResetBtn: document.querySelector("#cropResetBtn"),
   resizeResetBtn: document.querySelector("#resizeResetBtn"),
   estimateBtn: document.querySelector("#estimateBtn"),
@@ -85,6 +87,7 @@ function init() {
   bindTrimInputs();
   bindCropInputs();
   bindPreviewInteractions();
+  bindEditorTabs();
 
   els.fileInput.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
@@ -216,6 +219,43 @@ function bindPlaybackSpeedControls() {
   els.speedRange.addEventListener("input", syncPreviewSpeed);
   els.speedInput.addEventListener("input", syncPreviewSpeed);
   syncPreviewSpeed();
+}
+
+function bindEditorTabs() {
+  if (!els.editorTabButtons.length || !els.editorTabPanels.length) {
+    return;
+  }
+
+  const activateTab = (targetId) => {
+    els.editorTabButtons.forEach((button) => {
+      const isActive = button.dataset.tabTarget === targetId;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    els.editorTabPanels.forEach((panel) => {
+      const isActive = panel.id === targetId;
+      panel.classList.toggle("is-active", isActive);
+      panel.hidden = !isActive;
+    });
+  };
+
+  const initialButton =
+    Array.from(els.editorTabButtons).find((button) => button.classList.contains("is-active")) || els.editorTabButtons[0];
+
+  if (initialButton?.dataset.tabTarget) {
+    activateTab(initialButton.dataset.tabTarget);
+  }
+
+  els.editorTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const targetId = button.dataset.tabTarget;
+      if (!targetId) {
+        return;
+      }
+      activateTab(targetId);
+    });
+  });
 }
 
 function bindTrimInputs() {

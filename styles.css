@@ -75,6 +75,7 @@ body {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 16px;
+  align-items: start;
 }
 
 .panel {
@@ -209,6 +210,29 @@ body {
 
 .source-preview-block {
   overflow: hidden;
+}
+
+.editor-tabs {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.editor-tab-btn {
+  border: 1px solid #48697c;
+  background: rgba(11, 23, 31, 0.7);
+  color: var(--muted);
+}
+
+.editor-tab-btn.is-active {
+  border-color: #ffb347;
+  background: linear-gradient(135deg, rgba(255, 179, 71, 0.2), rgba(59, 214, 198, 0.16));
+  color: var(--text);
+}
+
+.editor-tab-panel {
+  margin-top: 2px;
 }
 
 .source-stage {
@@ -357,6 +381,23 @@ input[type="range"] {
   margin-top: 16px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.input-actions-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  padding: 12px 0 2px;
+  margin-top: 12px;
+  background: linear-gradient(180deg, rgba(19, 38, 50, 0.2), rgba(19, 38, 50, 0.95) 42%);
+}
+
+.output-panel {
+  position: sticky;
+  top: 14px;
+  max-height: calc(100vh - 28px);
+  overflow: auto;
 }
 
 button {
@@ -497,6 +538,12 @@ button:not(:disabled):hover {
   .app-shell {
     width: min(900px, calc(100% - 28px));
   }
+
+  .output-panel {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 @media (max-width: 640px) {
@@ -513,5 +560,9 @@ button:not(:disabled):hover {
 
   .actions {
     flex-direction: column;
+  }
+
+  .editor-tabs {
+    grid-template-columns: 1fr;
   }
 }
