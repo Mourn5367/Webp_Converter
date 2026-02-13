@@ -69,7 +69,6 @@ const MIN_CROP_SIZE = 8;
 const FFMPEG_PACKAGE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm";
 const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
 const FFMPEG_REMOTE_WORKER_URL = `${FFMPEG_PACKAGE_BASE}/worker.js`;
-const FFMPEG_CORE_WORKER_URL = `${FFMPEG_CORE_BASE}/ffmpeg-core.worker.js`;
 const FFMPEG_LOCAL_CORE_BASE = "./assets/ffmpeg";
 
 init();
@@ -701,7 +700,6 @@ async function ensureFfmpegReady() {
   const localConfig = {
     coreURL: resolveLocalAssetURL("ffmpeg-core.js"),
     wasmURL: resolveLocalAssetURL("ffmpeg-core.wasm"),
-    workerURL: resolveLocalAssetURL("ffmpeg-core.worker.js"),
   };
 
   try {
@@ -714,7 +712,6 @@ async function ensureFfmpegReady() {
       await ffmpeg.load({
         coreURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.js`,
         wasmURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`,
-        workerURL: FFMPEG_CORE_WORKER_URL,
       });
       appendLog("Loaded core from CDN direct.");
     } catch (directError) {
@@ -722,16 +719,14 @@ async function ensureFfmpegReady() {
       try {
         const blobCoreURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript");
         const blobWasmURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm");
-        const blobCoreWorkerURL = await toBlobURL(FFMPEG_CORE_WORKER_URL, "text/javascript");
 
         await ffmpeg.load({
           coreURL: blobCoreURL,
           wasmURL: blobWasmURL,
-          workerURL: blobCoreWorkerURL,
         });
         appendLog("Loaded core from CDN blob.");
       } catch (blobError) {
-        appendLog(`Blob core+worker load failed, retrying core-only blob: ${formatError(blobError)}`);
+        appendLog(`CDN blob core load failed, retrying core-only blob: ${formatError(blobError)}`);
         try {
           await ffmpeg.load({
             coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
@@ -1166,34 +1161,9 @@ function stripExtension(filename) {
   return filename.slice(0, index);
 }
 
-async function createSameOriginWorkerURL(remoteWorkerURL) {
-  const response = await fetch(remoteWorkerURL);
-  if (!response.ok) {
-    throw new Error(`Worker 스크립트 다운로드 실패: ${response.status} ${response.statusText}`);
-  }
-
-  const source = await response.text();
-  const rewritten = rewriteRelativeModuleImports(source, remoteWorkerURL);
-  return URL.createObjectURL(new Blob([rewritten], { type: "text/javascript" }));
-}
-
 function createWorkerImportBridgeURL(remoteWorkerURL) {
   const source = `import "${remoteWorkerURL}";`;
   return URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
-}
-
-function rewriteRelativeModuleImports(source, fileURL) {
-  const importPattern = /((?:import|export)\s+(?:[^'"]+?\s+from\s+)?)(['"])(\.{1,2}\/[^'"]+)\2/g;
-  const sideEffectImportPattern = /(import\s*)(['"])(\.{1,2}\/[^'"]+)\2/g;
-
-  const replaceImport = (_, prefix, quote, relPath) => {
-    const absolute = new URL(relPath, fileURL).href;
-    return `${prefix}${quote}${absolute}${quote}`;
-  };
-
-  let rewritten = source.replace(importPattern, replaceImport);
-  rewritten = rewritten.replace(sideEffectImportPattern, replaceImport);
-  return rewritten;
 }
 
 function cleanupWorkerBootstrapURL() {
