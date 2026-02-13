@@ -27,6 +27,21 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Prepare ffmpeg assets (same-origin)
+        run: |
+          mkdir -p assets/ffmpeg
+          curl -L --retry 3 --fail \
+            "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js" \
+            -o assets/ffmpeg/ffmpeg-core.js
+          curl -L --retry 3 --fail \
+            "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm" \
+            -o assets/ffmpeg/ffmpeg-core.wasm
+          curl -L --retry 3 --fail \
+            "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js" \
+            -o assets/ffmpeg/ffmpeg-core.worker.js
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

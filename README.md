@@ -40,6 +40,8 @@ python3 -m http.server 4173
 3. `Build and deployment`를 `GitHub Actions`로 선택
 4. `main` 브랜치에 커밋이 올라가면 자동 배포
 
+배포 워크플로는 실행 시 `assets/ffmpeg/`에 core/js/wasm/worker 파일을 받아 same-origin으로 서빙합니다.
+
 ## 기술 스택
 - Vanilla JavaScript
 - ffmpeg.wasm (`@ffmpeg/ffmpeg`, `@ffmpeg/core`, `@ffmpeg/util`)

@@ -70,6 +70,7 @@ const FFMPEG_PACKAGE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10
 const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
 const FFMPEG_REMOTE_WORKER_URL = `${FFMPEG_PACKAGE_BASE}/worker.js`;
 const FFMPEG_CORE_WORKER_URL = `${FFMPEG_CORE_BASE}/ffmpeg-core.worker.js`;
+const FFMPEG_LOCAL_CORE_BASE = "./assets/ffmpeg";
 
 init();
 
@@ -697,36 +698,50 @@ async function ensureFfmpegReady() {
   cleanupWorkerBootstrapURL();
   state.workerBootstrapURL = createWorkerImportBridgeURL(FFMPEG_REMOTE_WORKER_URL);
 
-  const directConfig = {
-    coreURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.js`,
-    wasmURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`,
-    workerURL: FFMPEG_CORE_WORKER_URL,
+  const localConfig = {
+    coreURL: resolveLocalAssetURL("ffmpeg-core.js"),
+    wasmURL: resolveLocalAssetURL("ffmpeg-core.wasm"),
+    workerURL: resolveLocalAssetURL("ffmpeg-core.worker.js"),
   };
 
   try {
-    await ffmpeg.load(directConfig);
-  } catch (error) {
-    appendLog(`Direct core load failed, trying blob core: ${formatError(error)}`);
-    try {
-      const blobCoreURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript");
-      const blobWasmURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm");
-      const blobCoreWorkerURL = await toBlobURL(FFMPEG_CORE_WORKER_URL, "text/javascript");
+    await ffmpeg.load(localConfig);
+    appendLog("Loaded core from local assets.");
+  } catch (localError) {
+    appendLog(`Local core load failed, trying CDN direct: ${formatError(localError)}`);
 
+    try {
       await ffmpeg.load({
-        coreURL: blobCoreURL,
-        wasmURL: blobWasmURL,
-        workerURL: blobCoreWorkerURL,
+        coreURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.js`,
+        wasmURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`,
+        workerURL: FFMPEG_CORE_WORKER_URL,
       });
-    } catch (blobError) {
-      appendLog(`Blob core+worker load failed, retrying core-only blob: ${formatError(blobError)}`);
+      appendLog("Loaded core from CDN direct.");
+    } catch (directError) {
+      appendLog(`CDN direct core failed, trying CDN blob: ${formatError(directError)}`);
       try {
+        const blobCoreURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript");
+        const blobWasmURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm");
+        const blobCoreWorkerURL = await toBlobURL(FFMPEG_CORE_WORKER_URL, "text/javascript");
+
         await ffmpeg.load({
-          coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-          wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
+          coreURL: blobCoreURL,
+          wasmURL: blobWasmURL,
+          workerURL: blobCoreWorkerURL,
         });
-      } catch (coreOnlyError) {
-        cleanupWorkerBootstrapURL();
-        throw new Error(`ffmpeg core load failed (direct+blob+coreOnly): ${formatError(coreOnlyError)}`);
+        appendLog("Loaded core from CDN blob.");
+      } catch (blobError) {
+        appendLog(`Blob core+worker load failed, retrying core-only blob: ${formatError(blobError)}`);
+        try {
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
+            wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
+          });
+          appendLog("Loaded core from CDN blob core-only.");
+        } catch (coreOnlyError) {
+          cleanupWorkerBootstrapURL();
+          throw new Error(`ffmpeg core load failed (local+direct+blob+coreOnly): ${formatError(coreOnlyError)}`);
+        }
       }
     }
   }
@@ -1048,6 +1063,10 @@ function setProgress(value) {
 
 function numberFromInput(input) {
   return Number(input.value);
+}
+
+function resolveLocalAssetURL(fileName) {
+  return new URL(`${FFMPEG_LOCAL_CORE_BASE}/${fileName}`, window.location.href).href;
 }
 
 function formatError(error) {
