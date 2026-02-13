@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video to WebP Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="app-shell">
+      <header class="hero">
+        <p class="hero-kicker">LOCAL ONLY WORKFLOW</p>
+        <h1>Video to WebP Lab</h1>
+        <p class="hero-description">
+          업로드 없이 내 기기에서 직접 변환합니다. 동영상 트림/크롭/리사이즈/FPS/품질을 조절해
+          애니메이션 WebP를 만드세요.
+        </p>
+      </header>
+
+      <main class="layout">
+        <section class="panel input-panel">
+          <h2>입력 및 편집</h2>
+
+          <label class="dropzone" id="dropzone" for="fileInput">
+            <input id="fileInput" type="file" accept="video/*" />
+            <span class="dropzone-title">동영상 파일 선택 또는 드래그 앤 드롭</span>
+            <span class="dropzone-caption">권장 200MB 이하, 하드 제한 없음</span>
+          </label>
+
+          <div class="warning" id="sizeWarning" hidden>
+            200MB를 초과했습니다. 브라우저 메모리에 따라 변환이 느리거나 실패할 수 있습니다.
+          </div>
+
+          <div class="meta-grid">
+            <div>
+              <span class="meta-label">파일명</span>
+              <strong id="metaName">-</strong>
+            </div>
+            <div>
+              <span class="meta-label">원본 용량</span>
+              <strong id="metaSize">-</strong>
+            </div>
+            <div>
+              <span class="meta-label">원본 해상도</span>
+              <strong id="metaResolution">-</strong>
+            </div>
+            <div>
+              <span class="meta-label">영상 길이</span>
+              <strong id="metaDuration">-</strong>
+            </div>
+          </div>
+
+          <div class="control-block source-preview-block">
+            <div class="block-title">
+              <h3>영상 미리보기 편집</h3>
+              <span class="inline-meta" id="playheadLabel">현재 00:00.00 / 00:00.00</span>
+            </div>
+
+            <div class="source-stage" id="sourceStage">
+              <video id="sourcePreview" controls playsinline muted preload="metadata"></video>
+              <div id="cropOverlay" class="crop-overlay" hidden>
+                <div id="cropBox" class="crop-box" data-handle="move">
+                  <span class="crop-handle nw" data-handle="nw"></span>
+                  <span class="crop-handle ne" data-handle="ne"></span>
+                  <span class="crop-handle sw" data-handle="sw"></span>
+                  <span class="crop-handle se" data-handle="se"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="trim-range-grid">
+              <label>
+                시작 슬라이더
+                <input id="trimStartRange" type="range" min="0" max="0" step="0.1" value="0" />
+              </label>
+              <label>
+                종료 슬라이더
+                <input id="trimEndRange" type="range" min="0" max="0" step="0.1" value="0" />
+              </label>
+            </div>
+
+            <div class="preview-toolbar">
+              <button type="button" class="ghost-btn" id="cropToggleBtn">크롭 편집 시작</button>
+              <button type="button" class="ghost-btn" id="setStartBtn">현재 위치를 시작으로</button>
+              <button type="button" class="ghost-btn" id="setEndBtn">현재 위치를 종료로</button>
+              <button type="button" class="ghost-btn" id="quickPreviewBtn">현재 설정 미리보기(3초)</button>
+            </div>
+          </div>
+
+          <div class="control-block">
+            <h3>트림</h3>
+            <div class="row two-col">
+              <label>
+                시작(초)
+                <input id="trimStart" type="number" min="0" step="0.1" value="0" />
+              </label>
+              <label>
+                종료(초)
+                <input id="trimEnd" type="number" min="0" step="0.1" value="0" />
+              </label>
+            </div>
+          </div>
+
+          <div class="control-block">
+            <div class="block-title">
+              <h3>크롭</h3>
+              <button type="button" class="ghost-btn" id="cropResetBtn">원본 채우기</button>
+            </div>
+            <div class="row four-col">
+              <label>
+                X
+                <input id="cropX" type="number" min="0" step="1" value="0" />
+              </label>
+              <label>
+                Y
+                <input id="cropY" type="number" min="0" step="1" value="0" />
+              </label>
+              <label>
+                W
+                <input id="cropW" type="number" min="1" step="1" value="0" />
+              </label>
+              <label>
+                H
+                <input id="cropH" type="number" min="1" step="1" value="0" />
+              </label>
+            </div>
+          </div>
+
+          <div class="control-block">
+            <div class="block-title">
+              <h3>리사이즈</h3>
+              <button type="button" class="ghost-btn" id="resizeResetBtn">크롭 크기 맞춤</button>
+            </div>
+            <div class="row two-col">
+              <label>
+                너비(px)
+                <input id="resizeW" type="number" min="1" step="1" value="0" />
+              </label>
+              <label>
+                높이(px)
+                <input id="resizeH" type="number" min="1" step="1" value="0" />
+              </label>
+            </div>
+          </div>
+
+          <div class="control-block">
+            <h3>FPS</h3>
+            <div class="slider-row">
+              <input id="fpsRange" type="range" min="1" max="30" step="1" value="12" />
+              <input id="fpsInput" type="number" min="1" max="30" step="1" value="12" />
+            </div>
+          </div>
+
+          <div class="control-block">
+            <h3>품질</h3>
+            <div class="slider-row">
+              <input id="qualityRange" type="range" min="1" max="100" step="1" value="75" />
+              <input id="qualityInput" type="number" min="1" max="100" step="1" value="75" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="primary-btn" id="convertBtn" disabled>WebP 변환</button>
+            <button type="button" class="ghost-btn" id="cancelBtn" disabled>변환 취소</button>
+          </div>
+        </section>
+
+        <section class="panel output-panel">
+          <h2>결과</h2>
+
+          <div class="status-box">
+            <p id="statusText">파일을 선택해 주세요.</p>
+            <p class="sub-status" id="subStatusText"></p>
+            <div class="progress-track" aria-label="변환 진행률">
+              <div id="progressBar"></div>
+            </div>
+          </div>
+
+          <div class="result-grid">
+            <div>
+              <span class="meta-label">변환 후 용량</span>
+              <strong id="outputSize">-</strong>
+            </div>
+            <div>
+              <span class="meta-label">용량 변화</span>
+              <strong id="sizeDelta">-</strong>
+            </div>
+          </div>
+
+          <div class="preview-box">
+            <img id="resultPreview" alt="변환된 WebP 미리보기" />
+          </div>
+
+          <a id="downloadLink" class="download-link disabled" href="#" download>
+            변환된 WebP 다운로드
+          </a>
+
+          <details class="log-box">
+            <summary>로그 보기</summary>
+            <pre id="logOutput"></pre>
+          </details>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
