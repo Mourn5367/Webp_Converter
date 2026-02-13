@@ -19,7 +19,7 @@
         <p class="hero-kicker">LOCAL ONLY WORKFLOW</p>
         <h1>Video to WebP Lab</h1>
         <p class="hero-description">
-          업로드 없이 내 기기에서 직접 변환합니다. 동영상 트림/크롭/리사이즈/FPS/품질을 조절해
+          업로드 없이 내 기기에서 직접 변환합니다. 동영상 트림/크롭/리사이즈/FPS/재생 속도/품질을 조절해
           애니메이션 WebP를 만드세요.
         </p>
       </header>
@@ -153,8 +153,16 @@
           <div class="control-block">
             <h3>FPS</h3>
             <div class="slider-row">
-              <input id="fpsRange" type="range" min="1" max="30" step="1" value="12" />
-              <input id="fpsInput" type="number" min="1" max="30" step="1" value="12" />
+              <input id="fpsRange" type="range" min="1" max="60" step="1" value="12" />
+              <input id="fpsInput" type="number" min="1" max="60" step="1" value="12" />
+            </div>
+          </div>
+
+          <div class="control-block">
+            <h3>재생 속도</h3>
+            <div class="slider-row">
+              <input id="speedRange" type="range" min="0.25" max="4" step="0.05" value="1" />
+              <input id="speedInput" type="number" min="0.25" max="4" step="0.05" value="1.00" />
             </div>
           </div>
 
@@ -166,7 +174,22 @@
             </div>
           </div>
 
+          <div class="control-block">
+            <h3>목표 용량</h3>
+            <div class="row two-col">
+              <label>
+                목표(MB)
+                <input id="targetSizeMB" type="number" min="0.1" step="0.1" value="1.0" />
+              </label>
+              <label>
+                추천 실행
+                <button type="button" class="ghost-btn" id="recommendBtn" disabled>FPS/품질 추천</button>
+              </label>
+            </div>
+          </div>
+
           <div class="actions">
+            <button type="button" class="ghost-btn" id="estimateBtn" disabled>용량 예측</button>
             <button type="button" class="primary-btn" id="convertBtn" disabled>WebP 변환</button>
             <button type="button" class="ghost-btn" id="cancelBtn" disabled>변환 취소</button>
           </div>
@@ -192,6 +215,10 @@
               <span class="meta-label">용량 변화</span>
               <strong id="sizeDelta">-</strong>
             </div>
+            <div>
+              <span class="meta-label">예상 용량(변환 전)</span>
+              <strong id="estimateSize">-</strong>
+            </div>
           </div>
 
           <div class="preview-box">
@@ -210,6 +237,6 @@
       </main>
     </div>
 
-    <script type="module" src="./main.js?v=20260213-corefix3"></script>
+    <script type="module" src="./main.js?v=20260213-target1"></script>
   </body>
 </html>

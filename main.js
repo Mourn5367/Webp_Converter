@@ -30,10 +30,15 @@ const els = {
   resizeH: document.querySelector("#resizeH"),
   fpsRange: document.querySelector("#fpsRange"),
   fpsInput: document.querySelector("#fpsInput"),
+  speedRange: document.querySelector("#speedRange"),
+  speedInput: document.querySelector("#speedInput"),
   qualityRange: document.querySelector("#qualityRange"),
   qualityInput: document.querySelector("#qualityInput"),
+  targetSizeMB: document.querySelector("#targetSizeMB"),
+  recommendBtn: document.querySelector("#recommendBtn"),
   cropResetBtn: document.querySelector("#cropResetBtn"),
   resizeResetBtn: document.querySelector("#resizeResetBtn"),
+  estimateBtn: document.querySelector("#estimateBtn"),
   convertBtn: document.querySelector("#convertBtn"),
   cancelBtn: document.querySelector("#cancelBtn"),
   statusText: document.querySelector("#statusText"),
@@ -41,6 +46,7 @@ const els = {
   progressBar: document.querySelector("#progressBar"),
   outputSize: document.querySelector("#outputSize"),
   sizeDelta: document.querySelector("#sizeDelta"),
+  estimateSize: document.querySelector("#estimateSize"),
   downloadLink: document.querySelector("#downloadLink"),
   resultPreview: document.querySelector("#resultPreview"),
   logOutput: document.querySelector("#logOutput"),
@@ -58,6 +64,7 @@ const state = {
   logLines: [],
   cropDrag: null,
   cropEditEnabled: false,
+  probeSeq: 0,
 };
 
 const MAX_RECOMMENDED_BYTES = 200 * 1024 * 1024;
@@ -70,8 +77,10 @@ const FFMPEG_LOCAL_CORE_BASE = "./assets/ffmpeg";
 init();
 
 function init() {
-  linkSliderAndInput(els.fpsRange, els.fpsInput, 1, 30);
+  linkSliderAndInput(els.fpsRange, els.fpsInput, 1, 60);
+  linkSliderAndDecimalInput(els.speedRange, els.speedInput, 0.25, 4, 0.05, 2);
   linkSliderAndInput(els.qualityRange, els.qualityInput, 1, 100);
+  bindPlaybackSpeedControls();
 
   bindTrimInputs();
   bindCropInputs();
@@ -110,6 +119,24 @@ function init() {
       const details = formatError(error);
       setStatus(`오류: ${details}`);
       appendLog(`Unhandled convert error: ${details}`);
+      setProcessingState(false);
+    });
+  });
+
+  els.estimateBtn.addEventListener("click", () => {
+    estimateOutputSize().catch((error) => {
+      const details = formatError(error);
+      setStatus(`오류: ${details}`);
+      appendLog(`Unhandled estimate error: ${details}`);
+      setProcessingState(false);
+    });
+  });
+
+  els.recommendBtn.addEventListener("click", () => {
+    recommendByTargetSize().catch((error) => {
+      const details = formatError(error);
+      setStatus(`오류: ${details}`);
+      appendLog(`Unhandled recommend error: ${details}`);
       setProcessingState(false);
     });
   });
@@ -174,6 +201,21 @@ function init() {
   clearResult();
   resetPreviewSurface();
   updateActionButtons();
+}
+
+function bindPlaybackSpeedControls() {
+  const syncPreviewSpeed = () => {
+    const speed = clampDecimal(numberFromInput(els.speedInput), 0.25, 4, 0.05, 2);
+    els.speedInput.value = speed.toFixed(2);
+    els.speedRange.value = String(speed);
+    if (Number.isFinite(els.sourcePreview.playbackRate)) {
+      els.sourcePreview.playbackRate = speed;
+    }
+  };
+
+  els.speedRange.addEventListener("input", syncPreviewSpeed);
+  els.speedInput.addEventListener("input", syncPreviewSpeed);
+  syncPreviewSpeed();
 }
 
 function bindTrimInputs() {
@@ -283,6 +325,20 @@ function linkSliderAndInput(slider, input, min, max) {
   });
 }
 
+function linkSliderAndDecimalInput(slider, input, min, max, step, decimals) {
+  slider.addEventListener("input", () => {
+    const value = clampDecimal(numberFromInput(slider), min, max, step, decimals);
+    slider.value = String(value);
+    input.value = value.toFixed(decimals);
+  });
+
+  input.addEventListener("input", () => {
+    const value = clampDecimal(numberFromInput(input), min, max, step, decimals);
+    input.value = value.toFixed(decimals);
+    slider.value = String(value);
+  });
+}
+
 async function handleSelectedFile(file) {
   if (!file.type.startsWith("video/")) {
     setStatus("오류: 동영상 파일만 선택할 수 있습니다.");
@@ -314,6 +370,7 @@ async function handleSelectedFile(file) {
 
     els.sourcePreview.src = state.sourceURL;
     els.sourcePreview.controls = true;
+    els.sourcePreview.playbackRate = clampDecimal(numberFromInput(els.speedInput), 0.25, 4, 0.05, 2);
     els.sourcePreview.currentTime = 0;
     setCropEditEnabled(false);
     els.sourceStage.style.aspectRatio = `${metadata.width} / ${metadata.height}`;
@@ -627,6 +684,7 @@ function validateOptions() {
   const resizeW = numberFromInput(els.resizeW);
   const resizeH = numberFromInput(els.resizeH);
   const fps = numberFromInput(els.fpsInput);
+  const playbackSpeed = numberFromInput(els.speedInput);
   const quality = numberFromInput(els.qualityInput);
 
   const maxDuration = state.metadata.duration;
@@ -643,8 +701,11 @@ function validateOptions() {
   if (!isPositiveInt(resizeW) || !isPositiveInt(resizeH)) {
     return { ok: false, message: "리사이즈 값은 1 이상의 정수여야 합니다." };
   }
-  if (!isPositiveInt(fps) || fps < 1 || fps > 30) {
-    return { ok: false, message: "FPS는 1~30 사이 정수여야 합니다." };
+  if (!isPositiveInt(fps) || fps < 1 || fps > 60) {
+    return { ok: false, message: "FPS는 1~60 사이 정수여야 합니다." };
+  }
+  if (!Number.isFinite(playbackSpeed) || playbackSpeed < 0.25 || playbackSpeed > 4) {
+    return { ok: false, message: "재생 속도는 0.25~4.00 사이여야 합니다." };
   }
   if (!isPositiveInt(quality) || quality < 1 || quality > 100) {
     return { ok: false, message: "품질은 1~100 사이 정수여야 합니다." };
@@ -662,6 +723,7 @@ function validateOptions() {
       resizeW,
       resizeH,
       fps,
+      playbackSpeed: clampDecimal(playbackSpeed, 0.25, 4, 0.05, 2),
       quality,
     },
   };
@@ -776,7 +838,7 @@ async function convertToWebp() {
     els.outputSize.textContent = formatBytes(outputBytes);
     els.sizeDelta.textContent = formatDelta(deltaRatio);
 
-    setSubStatus(`최종 결과 · FPS ${options.fps}, 품질 ${options.quality}`);
+    setSubStatus(`최종 결과 · FPS ${options.fps}, 속도 x${options.playbackSpeed.toFixed(2)}, 품질 ${options.quality}`);
 
     await safeDeleteFile(ffmpeg, inputName);
     await safeDeleteFile(ffmpeg, outputName);
@@ -793,6 +855,211 @@ async function convertToWebp() {
       setStatus(`변환 실패: ${details}`);
       appendLog(`Conversion error: ${details}`);
     }
+  } finally {
+    setProcessingState(false);
+    state.isCancelled = false;
+    updateActionButtons();
+  }
+}
+
+async function estimateOutputSize() {
+  const validation = validateOptions();
+  if (!validation.ok) {
+    setStatus(validation.message);
+    return;
+  }
+
+  const options = validation.options;
+  const fullDuration = options.trimEnd - options.trimStart;
+  const sampleDuration = Math.min(2, fullDuration);
+  if (sampleDuration <= 0) {
+    setStatus("예측을 위해 트림 범위를 먼저 확인하세요.");
+    return;
+  }
+
+  setProcessingState(true);
+  setProgress(1);
+  setStatus("용량 예측 계산 중...");
+
+  const inputExt = extensionOf(state.currentFile.name) || "mp4";
+  const inputName = `estimate-input.${inputExt}`;
+  const outputName = "estimate.webp";
+
+  const sampleOptions = {
+    ...options,
+    trimEnd: options.trimStart + sampleDuration,
+  };
+
+  try {
+    await ensureFfmpegReady();
+
+    const ffmpeg = state.ffmpeg;
+    await ffmpeg.writeFile(inputName, await fetchFile(state.currentFile));
+
+    const args = buildFfmpegArgs(inputName, outputName, sampleOptions, state.metadata.duration);
+    appendLog(`estimate ffmpeg ${args.join(" ")}`);
+    await ffmpeg.exec(args);
+
+    const outputData = await ffmpeg.readFile(outputName);
+    const sampleBytes = new Blob([outputData], { type: "image/webp" }).size;
+    const estimatedBytes = Math.max(1, Math.round(sampleBytes * (fullDuration / sampleDuration)));
+
+    els.estimateSize.textContent = `약 ${formatBytes(estimatedBytes)}`;
+    setSubStatus(`샘플 ${sampleDuration.toFixed(2)}초 기반 예측값 (실제와 오차 가능)`);
+    setStatus("용량 예측 완료. 설정을 조정해 다시 예측할 수 있습니다.");
+
+    await safeDeleteFile(ffmpeg, inputName);
+    await safeDeleteFile(ffmpeg, outputName);
+
+    setProgress(100);
+  } catch (error) {
+    const details = formatError(error);
+    setStatus(`용량 예측 실패: ${details}`);
+    appendLog(`Estimate error: ${details}`);
+  } finally {
+    setProcessingState(false);
+    state.isCancelled = false;
+    updateActionButtons();
+  }
+}
+
+async function recommendByTargetSize() {
+  const validation = validateOptions();
+  if (!validation.ok) {
+    setStatus(validation.message);
+    return;
+  }
+
+  const targetMB = numberFromInput(els.targetSizeMB);
+  if (!Number.isFinite(targetMB) || targetMB <= 0) {
+    setStatus("목표 용량(MB)은 0보다 커야 합니다.");
+    return;
+  }
+
+  const targetBytes = Math.round(targetMB * 1024 * 1024);
+  const baseOptions = validation.options;
+  const fullDuration = baseOptions.trimEnd - baseOptions.trimStart;
+  const sampleDuration = Math.min(1.5, fullDuration);
+  if (sampleDuration <= 0) {
+    setStatus("추천을 위해 트림 범위를 먼저 확인하세요.");
+    return;
+  }
+
+  const targetSampleBytes = targetBytes * (sampleDuration / fullDuration);
+
+  setProcessingState(true);
+  setProgress(1);
+  setStatus("목표 용량 기준 FPS/품질 추천 계산 중...");
+
+  const inputExt = extensionOf(state.currentFile.name) || "mp4";
+  const inputName = `recommend-input.${inputExt}`;
+
+  try {
+    await ensureFfmpegReady();
+    const ffmpeg = state.ffmpeg;
+
+    await safeDeleteFile(ffmpeg, inputName);
+    await ffmpeg.writeFile(inputName, await fetchFile(state.currentFile));
+
+    const baselineSampleBytes = await runProbeSample(ffmpeg, inputName, baseOptions, sampleDuration);
+    const baselineEstimatedBytes = Math.max(1, Math.round(baselineSampleBytes * (fullDuration / sampleDuration)));
+    appendLog(`recommend baseline estimate=${formatBytes(baselineEstimatedBytes)} target=${formatBytes(targetBytes)}`);
+
+    if (baselineEstimatedBytes <= targetBytes) {
+      els.estimateSize.textContent = `약 ${formatBytes(baselineEstimatedBytes)}`;
+      setSubStatus(
+        `현재 설정이 이미 목표 이하입니다. (목표 ${formatBytes(targetBytes)}, 예상 ${formatBytes(baselineEstimatedBytes)})`
+      );
+      setStatus("추천 완료: 현재 설정 유지");
+      setProgress(100);
+      await safeDeleteFile(ffmpeg, inputName);
+      return;
+    }
+
+    const fpsCandidates = buildFpsCandidates(baseOptions.fps);
+    let best = null;
+    let metTarget = true;
+
+    const maxProbeRuns = fpsCandidates.length * 8 + 2;
+    let probeRuns = 1;
+    setProgress((probeRuns / maxProbeRuns) * 100);
+
+    for (const fps of fpsCandidates) {
+      const minQualityBytes = await runProbeSample(ffmpeg, inputName, { ...baseOptions, fps, quality: 1 }, sampleDuration);
+      probeRuns += 1;
+      setProgress((probeRuns / maxProbeRuns) * 100);
+
+      if (minQualityBytes > targetSampleBytes) {
+        continue;
+      }
+
+      let low = 1;
+      let high = 100;
+      let feasibleQuality = 1;
+      let feasibleSampleBytes = minQualityBytes;
+      let iterations = 0;
+
+      while (low <= high && iterations < 7) {
+        const mid = Math.floor((low + high) / 2);
+        const sampleBytes = await runProbeSample(
+          ffmpeg,
+          inputName,
+          { ...baseOptions, fps, quality: mid },
+          sampleDuration
+        );
+
+        probeRuns += 1;
+        setProgress((probeRuns / maxProbeRuns) * 100);
+        iterations += 1;
+
+        if (sampleBytes <= targetSampleBytes) {
+          feasibleQuality = mid;
+          feasibleSampleBytes = sampleBytes;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      best = { fps, quality: feasibleQuality, sampleBytes: feasibleSampleBytes };
+      break;
+    }
+
+    if (!best) {
+      const fallbackFps = fpsCandidates[fpsCandidates.length - 1] || 1;
+      const fallbackBytes = await runProbeSample(
+        ffmpeg,
+        inputName,
+        { ...baseOptions, fps: fallbackFps, quality: 1 },
+        sampleDuration
+      );
+      best = { fps: fallbackFps, quality: 1, sampleBytes: fallbackBytes };
+      metTarget = false;
+      appendLog("No feasible combo under target. Returning minimum settings.");
+    }
+
+    const recommendedEstimateBytes = Math.max(1, Math.round(best.sampleBytes * (fullDuration / sampleDuration)));
+    applyRecommendedFpsQuality(best.fps, best.quality);
+
+    els.estimateSize.textContent = `약 ${formatBytes(recommendedEstimateBytes)}`;
+    if (metTarget) {
+      setSubStatus(
+        `추천 적용 · 목표 ${targetMB.toFixed(1)}MB / 예상 ${formatBytes(recommendedEstimateBytes)} (샘플 ${sampleDuration.toFixed(2)}초)`
+      );
+      setStatus(`추천 완료: FPS ${best.fps}, 품질 ${best.quality}`);
+    } else {
+      setSubStatus(
+        `최소값(FPS ${best.fps}, 품질 ${best.quality}) 기준 예상 ${formatBytes(recommendedEstimateBytes)} · 목표 ${targetMB.toFixed(1)}MB 미달성`
+      );
+      setStatus("추천 완료: 현재 설정 범위에서는 목표 용량 달성이 어렵습니다.");
+    }
+    setProgress(100);
+
+    await safeDeleteFile(ffmpeg, inputName);
+  } catch (error) {
+    const details = formatError(error);
+    setStatus(`추천 실패: ${details}`);
+    appendLog(`Recommend error: ${details}`);
   } finally {
     setProcessingState(false);
     state.isCancelled = false;
@@ -847,7 +1114,9 @@ async function generateSettingsPreview() {
 
     els.outputSize.textContent = formatBytes(outputBlob.size);
     els.sizeDelta.textContent = `미리보기 ${previewDuration.toFixed(2)}초`;
-    setSubStatus(`설정 미리보기 · FPS ${previewOptions.fps}, 품질 ${previewOptions.quality}`);
+    setSubStatus(
+      `설정 미리보기 · FPS ${previewOptions.fps}, 속도 x${previewOptions.playbackSpeed.toFixed(2)}, 품질 ${previewOptions.quality}`
+    );
 
     await safeDeleteFile(ffmpeg, inputName);
     await safeDeleteFile(ffmpeg, outputName);
@@ -875,8 +1144,10 @@ function buildFfmpegArgs(inputName, outputName, options, maxDuration) {
   const safeStart = clamp(options.trimStart, 0, maxDuration);
   const safeEnd = clamp(options.trimEnd, safeStart, maxDuration);
   const trimDuration = Math.max(0.01, safeEnd - safeStart);
+  const speedExpr = formatSpeedExpr(options.playbackSpeed);
 
   const vf = [
+    `setpts=${speedExpr}*PTS`,
     `crop=${options.cropW}:${options.cropH}:${options.cropX}:${options.cropY}`,
     `scale=${options.resizeW}:${options.resizeH}:flags=lanczos`,
     `fps=${options.fps}`,
@@ -913,6 +1184,48 @@ function buildFfmpegArgs(inputName, outputName, options, maxDuration) {
   );
 
   return args;
+}
+
+async function runProbeSample(ffmpeg, inputName, options, sampleDuration) {
+  const outputName = `probe-${Date.now()}-${state.probeSeq++}.webp`;
+  const sampleOptions = {
+    ...options,
+    trimEnd: options.trimStart + sampleDuration,
+  };
+
+  const args = buildFfmpegArgs(inputName, outputName, sampleOptions, state.metadata.duration);
+  await ffmpeg.exec(args);
+  const outputData = await ffmpeg.readFile(outputName);
+  const bytes = new Blob([outputData], { type: "image/webp" }).size;
+  await safeDeleteFile(ffmpeg, outputName);
+  return bytes;
+}
+
+function buildFpsCandidates(currentFps) {
+  const values = [
+    currentFps,
+    Math.round(currentFps * 0.9),
+    Math.round(currentFps * 0.75),
+    Math.round(currentFps * 0.6),
+    Math.round(currentFps * 0.45),
+    Math.round(currentFps * 0.33),
+    Math.round(currentFps * 0.25),
+    1,
+  ]
+    .map((v) => clamp(Math.round(v), 1, 60))
+    .sort((a, b) => b - a);
+
+  return [...new Set(values)];
+}
+
+function applyRecommendedFpsQuality(fps, quality) {
+  const normalizedFps = clamp(Math.round(fps), 1, 60);
+  const normalizedQuality = clamp(Math.round(quality), 1, 100);
+
+  els.fpsRange.value = String(normalizedFps);
+  els.fpsInput.value = String(normalizedFps);
+  els.qualityRange.value = String(normalizedQuality);
+  els.qualityInput.value = String(normalizedQuality);
 }
 
 function setResultFromBlob(blob, filename) {
@@ -974,6 +1287,8 @@ function setProcessingState(isProcessing) {
 
 function updateActionButtons() {
   const hasFile = Boolean(state.currentFile && state.metadata);
+  els.recommendBtn.disabled = !hasFile || state.isProcessing;
+  els.estimateBtn.disabled = !hasFile || state.isProcessing;
   els.convertBtn.disabled = !hasFile || state.isProcessing;
   els.quickPreviewBtn.disabled = !hasFile || state.isProcessing;
   els.cancelBtn.disabled = !state.isProcessing;
@@ -994,6 +1309,7 @@ function clearResult() {
   els.resultPreview.style.display = "none";
   els.outputSize.textContent = "-";
   els.sizeDelta.textContent = "-";
+  els.estimateSize.textContent = "-";
   els.downloadLink.href = "#";
   els.downloadLink.classList.add("disabled");
   setSubStatus("");
@@ -1086,6 +1402,21 @@ function clamp(value, min, max) {
     return min;
   }
   return Math.min(Math.max(value, min), max);
+}
+
+function clampDecimal(value, min, max, step, decimals) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  const clamped = Math.min(Math.max(value, min), max);
+  const snapped = Math.round(clamped / step) * step;
+  const factor = 10 ** decimals;
+  return Math.round(snapped * factor) / factor;
+}
+
+function formatSpeedExpr(speed) {
+  const safeSpeed = Math.max(0.05, Number(speed) || 1);
+  return (1 / safeSpeed).toFixed(6);
 }
 
 function roundTo(value, step) {
