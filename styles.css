@@ -277,29 +277,30 @@ body {
   border-radius: 999px;
   border: 2px solid #19323d;
   background: #ffd28d;
+  z-index: 2;
 }
 
 .crop-handle.nw {
-  left: -6px;
-  top: -6px;
+  left: 2px;
+  top: 2px;
   cursor: nwse-resize;
 }
 
 .crop-handle.ne {
-  right: -6px;
-  top: -6px;
+  right: 2px;
+  top: 2px;
   cursor: nesw-resize;
 }
 
 .crop-handle.sw {
-  left: -6px;
-  bottom: -6px;
+  left: 2px;
+  bottom: 2px;
   cursor: nesw-resize;
 }
 
 .crop-handle.se {
-  right: -6px;
-  bottom: -6px;
+  right: 2px;
+  bottom: 2px;
   cursor: nwse-resize;
 }
 

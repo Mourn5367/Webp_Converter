@@ -694,24 +694,28 @@ async function ensureFfmpegReady() {
   appendLog("Loading ffmpeg core...");
 
   cleanupWorkerBootstrapURL();
-  try {
-    state.workerBootstrapURL = await createSameOriginWorkerURL(FFMPEG_REMOTE_WORKER_URL);
-  } catch (error) {
-    appendLog(`Worker rewrite fallback: ${formatError(error)}`);
-    state.workerBootstrapURL = createWorkerImportBridgeURL(FFMPEG_REMOTE_WORKER_URL);
-  }
+  state.workerBootstrapURL = createWorkerImportBridgeURL(FFMPEG_REMOTE_WORKER_URL);
 
-  const loadConfig = {
-    coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-    wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
+  const directConfig = {
+    coreURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.js`,
+    wasmURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`,
     workerURL: state.workerBootstrapURL,
   };
 
   try {
-    await ffmpeg.load(loadConfig);
+    await ffmpeg.load(directConfig);
   } catch (error) {
-    cleanupWorkerBootstrapURL();
-    throw error;
+    appendLog(`Direct core load failed, trying blob core: ${formatError(error)}`);
+    try {
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
+        workerURL: state.workerBootstrapURL,
+      });
+    } catch (blobError) {
+      cleanupWorkerBootstrapURL();
+      throw new Error(`ffmpeg core load failed (direct+blob): ${formatError(blobError)}`);
+    }
   }
 
   state.ffmpeg = ffmpeg;
