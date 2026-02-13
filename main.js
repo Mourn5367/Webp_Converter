@@ -69,6 +69,7 @@ const MIN_CROP_SIZE = 8;
 const FFMPEG_PACKAGE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm";
 const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
 const FFMPEG_REMOTE_WORKER_URL = `${FFMPEG_PACKAGE_BASE}/worker.js`;
+const FFMPEG_CORE_WORKER_URL = `${FFMPEG_CORE_BASE}/ffmpeg-core.worker.js`;
 
 init();
 
@@ -699,7 +700,7 @@ async function ensureFfmpegReady() {
   const directConfig = {
     coreURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.js`,
     wasmURL: `${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`,
-    workerURL: state.workerBootstrapURL,
+    workerURL: FFMPEG_CORE_WORKER_URL,
   };
 
   try {
@@ -707,14 +708,26 @@ async function ensureFfmpegReady() {
   } catch (error) {
     appendLog(`Direct core load failed, trying blob core: ${formatError(error)}`);
     try {
+      const blobCoreURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript");
+      const blobWasmURL = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm");
+      const blobCoreWorkerURL = await toBlobURL(FFMPEG_CORE_WORKER_URL, "text/javascript");
+
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
-        workerURL: state.workerBootstrapURL,
+        coreURL: blobCoreURL,
+        wasmURL: blobWasmURL,
+        workerURL: blobCoreWorkerURL,
       });
     } catch (blobError) {
-      cleanupWorkerBootstrapURL();
-      throw new Error(`ffmpeg core load failed (direct+blob): ${formatError(blobError)}`);
+      appendLog(`Blob core+worker load failed, retrying core-only blob: ${formatError(blobError)}`);
+      try {
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
+          wasmURL: await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
+        });
+      } catch (coreOnlyError) {
+        cleanupWorkerBootstrapURL();
+        throw new Error(`ffmpeg core load failed (direct+blob+coreOnly): ${formatError(coreOnlyError)}`);
+      }
     }
   }
 
