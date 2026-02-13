@@ -1,5 +1,5 @@
-import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js";
-import { fetchFile, toBlobURL } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js";
+import { FFmpeg } from "./assets/ffmpeg/ffmpeg/index.js";
+import { fetchFile, toBlobURL } from "./assets/ffmpeg/util/index.js";
 
 const els = {
   fileInput: document.querySelector("#fileInput"),
@@ -58,24 +58,18 @@ const state = {
   logLines: [],
   cropDrag: null,
   cropEditEnabled: false,
-  workerBootstrapURL: null,
-  workerProxyInstalled: false,
 };
 
 const MAX_RECOMMENDED_BYTES = 200 * 1024 * 1024;
 const LOG_LIMIT = 120;
 const MIN_TRIM_GAP = 0.1;
 const MIN_CROP_SIZE = 8;
-const FFMPEG_PACKAGE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm";
-const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
-const FFMPEG_REMOTE_WORKER_URL = `${FFMPEG_PACKAGE_BASE}/worker.js`;
+const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
 const FFMPEG_LOCAL_CORE_BASE = "./assets/ffmpeg";
 
 init();
 
 function init() {
-  installWorkerProxy();
-
   linkSliderAndInput(els.fpsRange, els.fpsInput, 1, 30);
   linkSliderAndInput(els.qualityRange, els.qualityInput, 1, 100);
 
@@ -694,9 +688,6 @@ async function ensureFfmpegReady() {
   setStatus("ffmpeg 엔진 로드 중...");
   appendLog("Loading ffmpeg core...");
 
-  cleanupWorkerBootstrapURL();
-  state.workerBootstrapURL = createWorkerImportBridgeURL(FFMPEG_REMOTE_WORKER_URL);
-
   const localConfig = {
     coreURL: resolveLocalAssetURL("ffmpeg-core.js"),
     wasmURL: resolveLocalAssetURL("ffmpeg-core.wasm"),
@@ -734,7 +725,6 @@ async function ensureFfmpegReady() {
           });
           appendLog("Loaded core from CDN blob core-only.");
         } catch (coreOnlyError) {
-          cleanupWorkerBootstrapURL();
           throw new Error(`ffmpeg core load failed (local+direct+blob+coreOnly): ${formatError(coreOnlyError)}`);
         }
       }
@@ -952,7 +942,6 @@ function cancelConversion() {
 
   state.ffmpeg = null;
   state.ffmpegReady = false;
-  cleanupWorkerBootstrapURL();
 
   setProcessingState(false);
   setProgress(0);
@@ -1161,36 +1150,6 @@ function stripExtension(filename) {
   return filename.slice(0, index);
 }
 
-function createWorkerImportBridgeURL(remoteWorkerURL) {
-  const source = `import "${remoteWorkerURL}";`;
-  return URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
-}
-
-function cleanupWorkerBootstrapURL() {
-  if (state.workerBootstrapURL) {
-    URL.revokeObjectURL(state.workerBootstrapURL);
-    state.workerBootstrapURL = null;
-  }
-}
-
-function installWorkerProxy() {
-  if (state.workerProxyInstalled || typeof window === "undefined" || typeof window.Worker !== "function") {
-    return;
-  }
-
-  const NativeWorker = window.Worker;
-  window.Worker = class WorkerProxy extends NativeWorker {
-    constructor(scriptURL, options) {
-      const raw = typeof scriptURL === "string" ? scriptURL : String(scriptURL);
-      const shouldSwap = raw.includes("/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js");
-      const nextURL = shouldSwap && state.workerBootstrapURL ? state.workerBootstrapURL : scriptURL;
-      super(nextURL, options);
-    }
-  };
-
-  state.workerProxyInstalled = true;
-}
-
 async function safeDeleteFile(ffmpeg, filename) {
   try {
     await ffmpeg.deleteFile(filename);
@@ -1201,7 +1160,6 @@ async function safeDeleteFile(ffmpeg, filename) {
 
 window.addEventListener("beforeunload", () => {
   clearObjectURLs();
-  cleanupWorkerBootstrapURL();
 
   if (state.resultURL) {
     URL.revokeObjectURL(state.resultURL);
